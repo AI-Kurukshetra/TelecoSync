@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 8
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo lint
+      - run: pnpm turbo type-check
+
+  secret-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Block committed .env files
+        run: |
+          if git ls-files | grep -E '\.env$|\.env\.(local|production|staging|development)$'; then
+            echo "ERROR: .env files must not be committed"
+            exit 1
+          fi
+      - name: Scan for hardcoded secrets
+        run: |
+          if grep -rE "(sk_live_|rk_live_|AC[a-z0-9]{32}|eyJhbGciOiJ)" \
+            --include="*.ts" --include="*.tsx" apps/ packages/ supabase/functions/; then
+            echo "ERROR: Possible hardcoded secret found"
+            exit 1
+          fi

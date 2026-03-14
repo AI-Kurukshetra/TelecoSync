@@ -1,0 +1,196 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --canvas: #f5f0e8;
+  --canvas-deep: #ebe2d3;
+  --surface: rgba(255, 251, 245, 0.82);
+  --surface-strong: rgba(255, 255, 255, 0.94);
+  --surface-muted: rgba(12, 28, 42, 0.04);
+  --ink: #081724;
+  --muted: #5c6771;
+  --border: rgba(8, 23, 36, 0.1);
+  --accent: #007f73;
+  --accent-soft: rgba(0, 127, 115, 0.12);
+  --accent-strong: #03514a;
+  --signal: #f18f01;
+  --signal-soft: rgba(241, 143, 1, 0.14);
+  --danger: #d9485f;
+  --warning: #b96812;
+  --shadow: 0 22px 70px rgba(18, 31, 44, 0.12);
+  --display-font: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  --body-font: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top left, rgba(0, 127, 115, 0.22), transparent 28%),
+    radial-gradient(circle at 85% 10%, rgba(241, 143, 1, 0.18), transparent 22%),
+    radial-gradient(circle at bottom right, rgba(8, 23, 36, 0.08), transparent 28%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.68), transparent 44%),
+    var(--canvas);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--ink);
+  background: transparent;
+  font-family: var(--body-font);
+  text-rendering: optimizeLegibility;
+  position: relative;
+  overflow-x: hidden;
+}
+
+.app-background-media {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -2;
+  overflow: hidden;
+}
+
+.app-background-clip {
+  position: absolute;
+  right: -2rem;
+  top: 1.5rem;
+  width: min(72rem, 94vw);
+  max-width: none;
+  opacity: 1;
+  filter: saturate(1.08) contrast(1.04);
+  transform: rotate(-2deg);
+  mix-blend-mode: normal;
+}
+
+.app-background-wash {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(245, 240, 232, 0.02), rgba(245, 240, 232, 0.14) 58%, rgba(245, 240, 232, 0.22)),
+    radial-gradient(circle at 18% 78%, rgba(255, 255, 255, 0.08), transparent 28%);
+}
+
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  inset: auto;
+  pointer-events: none;
+  z-index: -1;
+}
+
+body::before {
+  top: 2rem;
+  right: -6rem;
+  width: 22rem;
+  height: 22rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(0, 127, 115, 0.18), transparent 64%);
+  filter: blur(8px);
+}
+
+body::after {
+  left: -8rem;
+  bottom: -8rem;
+  width: 26rem;
+  height: 26rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(241, 143, 1, 0.14), transparent 62%);
+  filter: blur(10px);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.panel {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  backdrop-filter: blur(18px);
+  border-radius: 28px;
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+  animation: panel-rise 420ms ease both;
+}
+
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.9), transparent 70%);
+}
+
+.panel::after {
+  content: "";
+  position: absolute;
+  top: -20%;
+  right: -10%;
+  width: 12rem;
+  height: 12rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(0, 127, 115, 0.08), transparent 70%);
+}
+
+.grid-background {
+  background-image: none;
+}
+
+.display-title {
+  font-family: var(--display-font);
+  letter-spacing: -0.04em;
+}
+
+.accent-label {
+  color: var(--accent-strong);
+  letter-spacing: 0.28em;
+}
+
+.signal-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--signal), #ffd166);
+  box-shadow: 0 0 0 6px rgba(241, 143, 1, 0.12);
+}
+
+.metric-glow {
+  background:
+    linear-gradient(135deg, rgba(0, 127, 115, 0.12), rgba(255, 255, 255, 0)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.3));
+}
+
+@keyframes panel-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .panel {
+    border-radius: 22px;
+  }
+
+  .app-background-clip {
+    right: -3rem;
+    top: 4rem;
+    width: 52rem;
+    opacity: 0.72;
+  }
+}

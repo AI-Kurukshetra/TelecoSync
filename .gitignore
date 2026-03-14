@@ -1,0 +1,26 @@
+# Dependencies
+node_modules
+
+# Build output
+.next
+dist
+coverage
+
+# Environment
+.env
+.env.local
+.env.*.local
+.env.production
+.env.staging
+.env.development
+supabase/.env
+supabase/functions/.env
+
+# Tooling
+.turbo
+.vercel
+supabase/.branches
+supabase/.temp
+
+# OS
+.DS_Store

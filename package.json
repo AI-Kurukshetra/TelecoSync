@@ -1,0 +1,33 @@
+{
+  "name": "telecosync",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@8.15.9",
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "web:dev": "pnpm --filter web dev",
+    "web:build": "pnpm --filter web build",
+    "web:start": "pnpm --filter web start",
+    "lint": "turbo lint",
+    "type-check": "turbo type-check",
+    "prepare": "husky",
+    "lint-staged": "lint-staged",
+    "format": "prettier --write .",
+    "load:smoke": "k6 run scripts/load/k6-smoke.js",
+    "load:read": "k6 run scripts/load/k6-100k-read.js",
+    "profile:web": "sh scripts/profile/next-profile.sh",
+    "supabase:link": "pnpm dlx supabase link --project-ref \"$SUPABASE_PROJECT_REF\"",
+    "supabase:db:push": "pnpm dlx supabase db push --project-ref \"$SUPABASE_PROJECT_REF\"",
+    "supabase:functions:deploy": "./scripts/deploy-supabase-functions.sh",
+    "supabase:deploy": "pnpm supabase:db:push && pnpm supabase:functions:deploy"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.10",
+    "prettier": "^3.3.3",
+    "turbo": "^2.0.12",
+    "typescript": "^5.6.3"
+  }
+}
