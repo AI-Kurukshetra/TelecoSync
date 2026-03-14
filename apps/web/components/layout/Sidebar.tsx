@@ -1,6 +1,10 @@
 import type { Route } from "next";
 import Link from "next/link";
-import { canAccessAppPath, normalizeAppRole, type AppRole } from "@/lib/auth/access";
+import {
+  canAccessAppPath,
+  normalizeAppRole,
+  type AppRole,
+} from "@/lib/auth/access";
 import { getCurrentSessionContext } from "@/lib/auth/session";
 
 type SidebarSection = {
@@ -17,9 +21,9 @@ const sidebarMenus: Record<AppRole, SidebarSection[]> = {
         { href: "/products", label: "Catalog", meta: "" },
         { href: "/orders", label: "Orders", meta: "" },
         { href: "/billing", label: "Billing", meta: "" },
-        { href: "/billing/invoices", label: "Invoices", meta: "" }
-      ]
-    }
+        { href: "/billing/invoices", label: "Invoices", meta: "" },
+      ],
+    },
   ],
   inventory_manager: [
     {
@@ -29,23 +33,23 @@ const sidebarMenus: Record<AppRole, SidebarSection[]> = {
         { href: "/products", label: "My products", meta: "" },
         { href: "/orders", label: "My orders", meta: "" },
         { href: "/billing", label: "Billing", meta: "" },
-        { href: "/notifications", label: "Alerts", meta: "" }
-      ]
-    }
+        { href: "/notifications", label: "Alerts", meta: "" },
+      ],
+    },
   ],
   customer: [
     {
       title: "",
       items: [
-        { href: "/dashboard", label: "My services", meta: "" },
+        { href: "/my-services", label: "My services", meta: "" },
         { href: "/products", label: "Products", meta: "" },
         { href: "/orders", label: "Orders", meta: "" },
         { href: "/billing", label: "Billing", meta: "" },
         { href: "/documents", label: "Documents", meta: "" },
-        { href: "/notifications", label: "Alerts", meta: "" }
-      ]
-    }
-  ]
+        { href: "/notifications", label: "Alerts", meta: "" },
+      ],
+    },
+  ],
 };
 
 export async function Sidebar() {
@@ -54,7 +58,9 @@ export async function Sidebar() {
   const allowedSections = sidebarMenus[role]
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => canAccessAppPath(item.href, session?.role, session?.permissions ?? []))
+      items: group.items.filter((item) =>
+        canAccessAppPath(item.href, session?.role, session?.permissions ?? []),
+      ),
     }))
     .filter((group) => group.items.length > 0);
 
@@ -66,12 +72,15 @@ export async function Sidebar() {
             TS
           </div>
           <div>
-            <p className="accent-label text-[11px] font-semibold uppercase">TelecoSync</p>
+            <p className="accent-label text-[11px] font-semibold uppercase">
+              TelecoSync
+            </p>
             <h2 className="mt-1 text-lg font-semibold">Digital carrier core</h2>
           </div>
         </div>
         <p className="mt-4 text-sm leading-6 text-[var(--muted)]">
-          A fixed-line platform centered on network inventory management, with supporting workflow, customer, and integration operations.
+          A fixed-line platform centered on network inventory management, with
+          supporting workflow, customer, and integration operations.
         </p>
       </div>
       <nav className="mt-5 space-y-5">
@@ -89,7 +98,9 @@ export async function Sidebar() {
                   href={section.href}
                   key={section.href}
                 >
-                  <span className="font-medium text-[var(--ink)]">{section.label}</span>
+                  <span className="font-medium text-[var(--ink)]">
+                    {section.label}
+                  </span>
                   {section.meta ? (
                     <span className="rounded-full bg-[var(--surface-muted)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)] group-hover:bg-[var(--accent-soft)] group-hover:text-[var(--accent-strong)]">
                       {section.meta}

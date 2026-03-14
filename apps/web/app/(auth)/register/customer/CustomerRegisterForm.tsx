@@ -57,7 +57,7 @@ export function CustomerRegisterForm() {
       return;
     }
 
-    router.replace((payload.data?.nextPath ?? "/dashboard") as Route);
+    router.replace((payload.data?.nextPath ?? "/my-services") as Route);
     router.refresh();
   }
 

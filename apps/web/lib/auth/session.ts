@@ -36,6 +36,13 @@ export type SessionContext = TenantContext & {
   permissions: AppPermission[];
 };
 
+const CUSTOMER_SELF_SERVICE_PERMISSIONS: AppPermission[] = [
+  "customer:read",
+  "products:read",
+  "orders:read",
+  "billing:read",
+];
+
 function asString(value: unknown) {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
@@ -59,6 +66,13 @@ function flattenPermissions(value: unknown): AppPermission[] {
   }
 
   return permissions;
+}
+
+function mergePermissions(
+  basePermissions: AppPermission[],
+  extraPermissions: AppPermission[],
+) {
+  return [...new Set([...basePermissions, ...extraPermissions])];
 }
 
 export function resolveTenantContext(user: User | null): TenantContext | null {
@@ -122,14 +136,19 @@ export async function getCurrentSessionContext(): Promise<SessionContext | null>
     asString(roleRecord?.name) ??
     asString(user.app_metadata.role) ??
     asString(user.user_metadata.role);
+  const normalizedRole = normalizeAppRole(resolvedRole, permissions);
+  const resolvedPermissions =
+    normalizedRole === "customer"
+      ? mergePermissions(permissions, CUSTOMER_SELF_SERVICE_PERMISSIONS)
+      : permissions;
 
   return {
     userId: user.id,
     email: user.email ?? null,
     fullName: asString(user.user_metadata.full_name),
-    permissions,
+    permissions: resolvedPermissions,
     ...tenantContext,
-    role: normalizeAppRole(resolvedRole, permissions),
+    role: normalizedRole,
   };
 }
 

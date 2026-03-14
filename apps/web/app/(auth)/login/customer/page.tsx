@@ -10,7 +10,7 @@ export default function CustomerLoginPage() {
         </p>
         <h1 className="mt-3 text-3xl font-semibold">Access your account</h1>
         <div className="space-y-3">
-          <LoginForm nextPath="/dashboard" />
+          <LoginForm nextPath="/my-services" />
           <Link
             className="block text-sm font-semibold text-[var(--accent)]"
             href="/forgot-password"

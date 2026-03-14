@@ -43,7 +43,7 @@ const ROLE_ROUTE_PREFIXES: Record<AppRole, string[]> = {
     "/billing",
   ],
   customer: [
-    "/dashboard",
+    "/my-services",
     "/products",
     "/orders",
     "/billing",
@@ -55,7 +55,7 @@ const ROLE_ROUTE_PREFIXES: Record<AppRole, string[]> = {
 const ROLE_DEFAULT_ROUTES: Record<AppRole, string> = {
   admin: "/users",
   inventory_manager: "/inventory",
-  customer: "/dashboard",
+  customer: "/my-services",
 };
 
 export function normalizeAppRole(

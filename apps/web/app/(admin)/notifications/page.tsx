@@ -7,7 +7,6 @@ export default function NotificationsPage() {
       eyebrow="Admin / Notifications"
       title="Notification control"
       description="Notifications stay current as records change."
-      stats={[{ label: "Execution", value: "notification-sender" }]}
     >
       <LiveNotificationsPanel />
     </ModulePage>

@@ -7,7 +7,6 @@ export default function DocumentsPage() {
       eyebrow="Admin / Documents"
       title="Document management"
       description="Documents stay current as records change."
-      stats={[{ label: "Storage", value: "Supabase Storage" }]}
     >
       <LiveDocumentsPanel />
     </ModulePage>
