@@ -2,7 +2,7 @@
 
 import type { Route } from "next";
 import type { FormEvent } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 type LoginResponse = {
@@ -14,10 +14,8 @@ type LoginResponse = {
   };
 };
 
-export function LoginForm() {
+export function LoginForm({ nextPath }: { nextPath?: string }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const nextPath = searchParams.get("next") ?? "/workspace";
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
 
@@ -30,13 +28,13 @@ export function LoginForm() {
     const response = await fetch("/api/auth/login", {
       method: "POST",
       headers: {
-        "content-type": "application/json"
+        "content-type": "application/json",
       },
       body: JSON.stringify({
         email: formData.get("email"),
         password: formData.get("password"),
-        next: nextPath
-      })
+        ...(nextPath ? { next: nextPath } : {}),
+      }),
     });
 
     const payload = (await response.json()) as LoginResponse;
@@ -47,7 +45,7 @@ export function LoginForm() {
       return;
     }
 
-    router.replace((payload.data?.nextPath ?? nextPath) as Route);
+    router.replace((payload.data?.nextPath ?? nextPath ?? "/") as Route);
     router.refresh();
   }
 

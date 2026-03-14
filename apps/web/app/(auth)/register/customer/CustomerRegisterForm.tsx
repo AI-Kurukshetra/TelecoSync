@@ -38,15 +38,15 @@ export function CustomerRegisterForm() {
     const response = await fetch("/api/auth/register/customer", {
       method: "POST",
       headers: {
-        "content-type": "application/json"
+        "content-type": "application/json",
       },
       body: JSON.stringify({
         fullName: getStringValue(formData, "fullName"),
         email: getStringValue(formData, "email"),
         password: getStringValue(formData, "password"),
         tenantSlug: getStringValue(formData, "tenantSlug"),
-        phone: getStringValue(formData, "phone")
-      })
+        phone: getStringValue(formData, "phone"),
+      }),
     });
 
     const payload = (await response.json()) as RegisterResponse;
@@ -57,7 +57,7 @@ export function CustomerRegisterForm() {
       return;
     }
 
-    router.replace((payload.data?.nextPath ?? "/workspace") as Route);
+    router.replace((payload.data?.nextPath ?? "/dashboard") as Route);
     router.refresh();
   }
 
@@ -65,27 +65,54 @@ export function CustomerRegisterForm() {
     <form onSubmit={onSubmit} className="mt-8 space-y-4">
       <label className="block">
         <span className="mb-2 block text-sm font-medium">Full name</span>
-        <input className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm outline-none" name="fullName" required />
+        <input
+          className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm outline-none"
+          name="fullName"
+          required
+        />
       </label>
 
       <label className="block">
         <span className="mb-2 block text-sm font-medium">Email</span>
-        <input className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm outline-none" name="email" type="email" required />
+        <input
+          className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm outline-none"
+          name="email"
+          type="email"
+          required
+        />
       </label>
 
       <label className="block">
         <span className="mb-2 block text-sm font-medium">Phone</span>
-        <input className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm outline-none" name="phone" placeholder="+1 555 010 0042" />
+        <input
+          className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm outline-none"
+          name="phone"
+          placeholder="+1 555 010 0042"
+        />
       </label>
 
       <label className="block">
-        <span className="mb-2 block text-sm font-medium">Carrier tenant slug</span>
-        <input className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm outline-none" name="tenantSlug" placeholder="demo-telecom" pattern="[a-z0-9-]+" required />
+        <span className="mb-2 block text-sm font-medium">
+          Carrier tenant slug
+        </span>
+        <input
+          className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm outline-none"
+          name="tenantSlug"
+          placeholder="demo-telecom"
+          pattern="[a-z0-9-]+"
+          required
+        />
       </label>
 
       <label className="block">
         <span className="mb-2 block text-sm font-medium">Password</span>
-        <input className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm outline-none" name="password" type="password" minLength={8} required />
+        <input
+          className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm outline-none"
+          name="password"
+          type="password"
+          minLength={8}
+          required
+        />
       </label>
 
       {error ? (
@@ -94,7 +121,11 @@ export function CustomerRegisterForm() {
         </p>
       ) : null}
 
-      <button className="w-full rounded-full bg-[var(--ink)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60" disabled={isPending} type="submit">
+      <button
+        className="w-full rounded-full bg-[var(--ink)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
+        disabled={isPending}
+        type="submit"
+      >
         {isPending ? "Creating customer..." : "Create customer"}
       </button>
     </form>

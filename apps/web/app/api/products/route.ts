@@ -10,14 +10,17 @@ import { productSchema } from "@/lib/utils/zod-schemas/product";
 
 export async function GET(request: Request) {
   try {
-    const session = await requireSessionContext("billing:read");
+    const session = await requireSessionContext("products:read");
     const pagination = parsePagination(request);
     const supabase = adminTenantClient();
     const { data, error, count } = await supabase
       .from("products")
-      .select("id, name, description, category, price, currency, billing_cycle, lifecycle_status, version", {
-        count: "exact"
-      })
+      .select(
+        "id, name, description, category, price, currency, billing_cycle, lifecycle_status, version",
+        {
+          count: "exact",
+        },
+      )
       .eq("tenant_id", session.tenantId)
       .order("created_at", { ascending: false })
       .range(pagination.offset, pagination.offset + pagination.limit - 1);
@@ -38,10 +41,10 @@ export async function GET(request: Request) {
           currency: product.currency,
           billingCycle: product.billing_cycle,
           lifecycleStatus: product.lifecycle_status,
-          version: product.version
-        })
+          version: product.version,
+        }),
       ),
-      paginationMeta(pagination, count)
+      paginationMeta(pagination, count),
     );
   } catch (error) {
     return handleRouteError(error);
@@ -50,7 +53,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const session = await requireSessionContext("billing:write");
+    const session = await requireSessionContext("products:write");
     const json = await request.json().catch(() => null);
     const result = productSchema.safeParse(json);
 
@@ -70,14 +73,19 @@ export async function POST(request: Request) {
           currency: result.data.currency ?? "USD",
           billing_cycle: result.data.billingCycle ?? null,
           lifecycle_status: result.data.lifecycleStatus ?? "Active",
-          version: result.data.version ?? "1.0"
-        })
+          version: result.data.version ?? "1.0",
+        }),
       )
-      .select("id, name, description, category, price, currency, billing_cycle, lifecycle_status, version")
+      .select(
+        "id, name, description, category, price, currency, billing_cycle, lifecycle_status, version",
+      )
       .single();
 
     if (error || !data) {
-      return apiError("INTERNAL_ERROR", error?.message ?? "Unable to create product.");
+      return apiError(
+        "INTERNAL_ERROR",
+        error?.message ?? "Unable to create product.",
+      );
     }
 
     const payload = tmfEnvelope("ProductOffering", {
@@ -90,7 +98,7 @@ export async function POST(request: Request) {
       currency: data.currency,
       billingCycle: data.billing_cycle,
       lifecycleStatus: data.lifecycle_status,
-      version: data.version
+      version: data.version,
     });
 
     await recordDomainEvent({
@@ -98,7 +106,7 @@ export async function POST(request: Request) {
       eventType: "product.created",
       entityType: "product",
       entityId: data.id,
-      payload
+      payload,
     });
 
     return created(payload);

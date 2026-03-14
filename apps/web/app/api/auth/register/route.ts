@@ -4,6 +4,7 @@ import { recordDomainEvent } from "@/lib/api/events";
 import { getDefaultRouteForRole } from "@/lib/auth/access";
 import { registerSchema } from "@/lib/auth/schemas";
 import { resolveTenantContext } from "@/lib/auth/session";
+import { seedDemoTenantData } from "@/lib/server/demo-seed";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -13,7 +14,7 @@ const adminPermissions = {
   orders: ["read", "write"],
   billing: ["read", "write"],
   operations: ["read", "write"],
-  admin: ["read", "write"]
+  admin: ["read", "write"],
 };
 
 const inventoryManagerPermissions = {
@@ -21,21 +22,21 @@ const inventoryManagerPermissions = {
   products: ["read", "write"],
   orders: ["read"],
   billing: ["read", "write"],
-  operations: ["read", "write"]
+  operations: ["read", "write"],
 };
 
 const customerPermissions = {
   customer: ["read"],
   products: ["read"],
   orders: ["read"],
-  billing: ["read"]
+  billing: ["read"],
 };
 
 function splitName(fullName: string) {
   const [firstName, ...rest] = fullName.trim().split(/\s+/);
   return {
     firstName,
-    lastName: rest.join(" ") || "Customer"
+    lastName: rest.join(" ") || "Customer",
   };
 }
 
@@ -43,15 +44,143 @@ function nextCustomerSequence(prefix: string) {
   return `${prefix}-${Date.now()}`;
 }
 
+async function ensureStarterCustomerRecords(
+  adminClient: ReturnType<typeof createAdminSupabaseClient>,
+  {
+    tenantId,
+    customerId,
+    accountId,
+    tenantSlug,
+  }: {
+    tenantId: string;
+    customerId: string;
+    accountId: string;
+    tenantSlug: string;
+  },
+) {
+  const { count: existingOrderCount, error: existingOrderError } =
+    await adminClient
+      .from("orders")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .eq("customer_id", customerId);
+
+  if (existingOrderError) {
+    throw new Error(existingOrderError.message);
+  }
+
+  if ((existingOrderCount ?? 0) > 0) {
+    return;
+  }
+
+  const { count: productCount, error: productCountError } = await adminClient
+    .from("products")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId);
+
+  if (productCountError) {
+    throw new Error(productCountError.message);
+  }
+
+  if ((productCount ?? 0) === 0) {
+    await seedDemoTenantData(tenantId, tenantSlug);
+  }
+
+  const [
+    { data: starterProduct, error: productError },
+    { data: networkElement, error: networkElementError },
+  ] = await Promise.all([
+    adminClient
+      .from("products")
+      .select("id, name, price, currency")
+      .eq("tenant_id", tenantId)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle(),
+    adminClient
+      .from("network_elements")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  if (productError) {
+    throw new Error(productError.message);
+  }
+
+  if (networkElementError) {
+    throw new Error(networkElementError.message);
+  }
+
+  if (!starterProduct) {
+    return;
+  }
+
+  const { error: orderError } = await adminClient.from("orders").insert({
+    tenant_id: tenantId,
+    customer_id: customerId,
+    account_id: accountId,
+    order_number: nextCustomerSequence(`${tenantSlug.toUpperCase()}-ORD`),
+    order_type: "new",
+    status: "pending",
+    items_json: [
+      {
+        productId: starterProduct.id,
+        productName: starterProduct.name,
+        quantity: 1,
+        source: "customer_self_registration",
+      },
+    ],
+    total_amount: starterProduct.price ?? 0,
+    currency: starterProduct.currency ?? "USD",
+  });
+
+  if (orderError) {
+    throw new Error(orderError.message);
+  }
+
+  const { count: existingServiceCount, error: existingServiceError } =
+    await adminClient
+      .from("service_instances")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .eq("customer_id", customerId);
+
+  if (existingServiceError) {
+    throw new Error(existingServiceError.message);
+  }
+
+  if ((existingServiceCount ?? 0) === 0 && networkElement?.id) {
+    const { error: serviceError } = await adminClient
+      .from("service_instances")
+      .insert({
+        tenant_id: tenantId,
+        customer_id: customerId,
+        product_id: starterProduct.id,
+        network_element_id: networkElement.id,
+        status: "pending",
+        config_json: {
+          source: "customer_self_registration",
+        },
+      });
+
+    if (serviceError) {
+      throw new Error(serviceError.message);
+    }
+  }
+}
+
 async function ensureTenantRole(
   adminClient: ReturnType<typeof createAdminSupabaseClient>,
   tenantId: string,
-  roleName: "admin" | "inventory_manager" | "customer"
+  roleName: "admin" | "inventory_manager" | "customer",
 ) {
   const permissionsByRole = {
     admin: adminPermissions,
     inventory_manager: inventoryManagerPermissions,
-    customer: customerPermissions
+    customer: customerPermissions,
   };
 
   const { data: existingRole, error: existingRoleError } = await adminClient
@@ -74,13 +203,15 @@ async function ensureTenantRole(
     .insert({
       tenant_id: tenantId,
       name: roleName,
-      permissions_json: permissionsByRole[roleName]
+      permissions_json: permissionsByRole[roleName],
     })
     .select("id")
     .single();
 
   if (createRoleError || !createdRole) {
-    throw new Error(createRoleError?.message ?? `Unable to create ${roleName} role.`);
+    throw new Error(
+      createRoleError?.message ?? `Unable to create ${roleName} role.`,
+    );
   }
 
   return createdRole.id;
@@ -88,10 +219,11 @@ async function ensureTenantRole(
 
 async function signInAndRespond(email: string, password: string) {
   const supabase = createServerSupabaseClient();
-  const { data: sessionData, error: sessionError } = await supabase.auth.signInWithPassword({
-    email,
-    password
-  });
+  const { data: sessionData, error: sessionError } =
+    await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
   if (sessionError || !sessionData.user) {
     throw new Error(sessionError?.message ?? "Automatic sign-in failed.");
@@ -107,23 +239,23 @@ async function signInAndRespond(email: string, password: string) {
     data: {
       user: {
         id: sessionData.user.id,
-        email: sessionData.user.email ?? null
+        email: sessionData.user.email ?? null,
       },
       tenant: tenantContext,
-      nextPath: getDefaultRouteForRole(tenantContext.role)
-    }
+      nextPath: getDefaultRouteForRole(tenantContext.role),
+    },
   });
 
   response.cookies.set("telecosync-tenant", tenantContext.tenantId, {
     httpOnly: true,
     sameSite: "lax",
-    path: "/"
+    path: "/",
   });
 
   return {
     response,
     sessionUser: sessionData.user,
-    tenantContext
+    tenantContext,
   };
 }
 
@@ -135,7 +267,16 @@ export async function POST(request: Request) {
     return apiError("VALIDATION_ERROR", "Invalid registration payload.");
   }
 
-  const { role, fullName, department, email, password, tenantName, tenantSlug, phone } = parsed.data;
+  const {
+    role,
+    fullName,
+    department,
+    email,
+    password,
+    tenantName,
+    tenantSlug,
+    phone,
+  } = parsed.data;
   const adminClient = createAdminSupabaseClient();
 
   try {
@@ -156,13 +297,16 @@ export async function POST(request: Request) {
           name: tenantName!,
           slug: tenantSlug,
           plan: "starter",
-          status: "active"
+          status: "active",
         })
         .select("id, slug")
         .single();
 
       if (tenantError || !tenant) {
-        return apiError("INTERNAL_ERROR", tenantError?.message ?? "Unable to create tenant.");
+        return apiError(
+          "INTERNAL_ERROR",
+          tenantError?.message ?? "Unable to create tenant.",
+        );
       }
 
       try {
@@ -170,43 +314,55 @@ export async function POST(request: Request) {
         await ensureTenantRole(adminClient, tenant.id, "inventory_manager");
         await ensureTenantRole(adminClient, tenant.id, "customer");
 
-        const { data: createdUser, error: userError } = await adminClient.auth.admin.createUser({
-          email,
-          password,
-          email_confirm: true,
-          app_metadata: {
-            tenant_id: tenant.id,
-            tenant_slug: tenant.slug,
-            role: "admin"
-          },
-          user_metadata: {
-            full_name: fullName,
-            department: department ?? "Administration",
-            tenant_id: tenant.id,
-            tenant_slug: tenant.slug,
-            role: "admin"
-          }
-        });
+        const { data: createdUser, error: userError } =
+          await adminClient.auth.admin.createUser({
+            email,
+            password,
+            email_confirm: true,
+            app_metadata: {
+              tenant_id: tenant.id,
+              tenant_slug: tenant.slug,
+              role: "admin",
+            },
+            user_metadata: {
+              full_name: fullName,
+              department: department ?? "Administration",
+              tenant_id: tenant.id,
+              tenant_slug: tenant.slug,
+              role: "admin",
+            },
+          });
 
         if (userError || !createdUser.user) {
-          throw new Error(userError?.message ?? "Unable to create administrator.");
+          throw new Error(
+            userError?.message ?? "Unable to create administrator.",
+          );
         }
 
-        const { error: profileError } = await adminClient.from("user_profiles").insert({
-          id: createdUser.user.id,
-          tenant_id: tenant.id,
-          role_id: roleId,
-          full_name: fullName,
-          department: department ?? "Administration",
-          status: "active"
-        });
+        const { error: profileError } = await adminClient
+          .from("user_profiles")
+          .insert({
+            id: createdUser.user.id,
+            tenant_id: tenant.id,
+            role_id: roleId,
+            full_name: fullName,
+            department: department ?? "Administration",
+            status: "active",
+          });
 
         if (profileError) {
           await adminClient.auth.admin.deleteUser(createdUser.user.id);
-          throw new Error(profileError.message ?? "Unable to create administrator profile.");
+          throw new Error(
+            profileError.message ?? "Unable to create administrator profile.",
+          );
         }
 
-        const { response, sessionUser, tenantContext } = await signInAndRespond(email, password);
+        await seedDemoTenantData(tenant.id, tenant.slug, createdUser.user.id);
+
+        const { response, sessionUser, tenantContext } = await signInAndRespond(
+          email,
+          password,
+        );
 
         await recordDomainEvent({
           tenantId: tenantContext.tenantId,
@@ -216,15 +372,20 @@ export async function POST(request: Request) {
           payload: {
             email: sessionUser.email ?? null,
             tenantId: tenantContext.tenantId,
-            role
-          }
+            role,
+          },
         });
 
         return response;
       } catch (error) {
         await adminClient.from("roles").delete().eq("tenant_id", tenant.id);
         await adminClient.from("tenants").delete().eq("id", tenant.id);
-        return apiError("INTERNAL_ERROR", error instanceof Error ? error.message : "Unable to complete administrator signup.");
+        return apiError(
+          "INTERNAL_ERROR",
+          error instanceof Error
+            ? error.message
+            : "Unable to complete administrator signup.",
+        );
       }
     }
 
@@ -243,45 +404,61 @@ export async function POST(request: Request) {
     }
 
     if (role === "inventory_manager") {
-      const roleId = await ensureTenantRole(adminClient, tenant.id, "inventory_manager");
+      const roleId = await ensureTenantRole(
+        adminClient,
+        tenant.id,
+        "inventory_manager",
+      );
 
-      const { data: createdUser, error: userError } = await adminClient.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        app_metadata: {
-          tenant_id: tenant.id,
-          tenant_slug: tenant.slug,
-          role: "inventory_manager"
-        },
-        user_metadata: {
-          full_name: fullName,
-          department: department ?? "Inventory",
-          tenant_id: tenant.id,
-          tenant_slug: tenant.slug,
-          role: "inventory_manager"
-        }
-      });
+      const { data: createdUser, error: userError } =
+        await adminClient.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+          app_metadata: {
+            tenant_id: tenant.id,
+            tenant_slug: tenant.slug,
+            role: "inventory_manager",
+          },
+          user_metadata: {
+            full_name: fullName,
+            department: department ?? "Inventory",
+            tenant_id: tenant.id,
+            tenant_slug: tenant.slug,
+            role: "inventory_manager",
+          },
+        });
 
       if (userError || !createdUser.user) {
-        return apiError("INTERNAL_ERROR", userError?.message ?? "Unable to create inventory manager.");
+        return apiError(
+          "INTERNAL_ERROR",
+          userError?.message ?? "Unable to create inventory manager.",
+        );
       }
 
-      const { error: profileError } = await adminClient.from("user_profiles").insert({
-        id: createdUser.user.id,
-        tenant_id: tenant.id,
-        role_id: roleId,
-        full_name: fullName,
-        department: department ?? "Inventory",
-        status: "active"
-      });
+      const { error: profileError } = await adminClient
+        .from("user_profiles")
+        .insert({
+          id: createdUser.user.id,
+          tenant_id: tenant.id,
+          role_id: roleId,
+          full_name: fullName,
+          department: department ?? "Inventory",
+          status: "active",
+        });
 
       if (profileError) {
         await adminClient.auth.admin.deleteUser(createdUser.user.id);
-        return apiError("INTERNAL_ERROR", profileError.message ?? "Unable to create inventory manager profile.");
+        return apiError(
+          "INTERNAL_ERROR",
+          profileError.message ?? "Unable to create inventory manager profile.",
+        );
       }
 
-      const { response, sessionUser, tenantContext } = await signInAndRespond(email, password);
+      const { response, sessionUser, tenantContext } = await signInAndRespond(
+        email,
+        password,
+      );
 
       await recordDomainEvent({
         tenantId: tenantContext.tenantId,
@@ -291,8 +468,8 @@ export async function POST(request: Request) {
         payload: {
           email: sessionUser.email ?? null,
           tenantId: tenantContext.tenantId,
-          role
-        }
+          role,
+        },
       });
 
       return response;
@@ -309,13 +486,16 @@ export async function POST(request: Request) {
         first_name: firstName,
         last_name: lastName,
         email,
-        phone: phone ?? null
+        phone: phone ?? null,
       })
       .select("id")
       .single();
 
     if (customerError || !customer) {
-      return apiError("INTERNAL_ERROR", customerError?.message ?? "Unable to create customer profile.");
+      return apiError(
+        "INTERNAL_ERROR",
+        customerError?.message ?? "Unable to create customer profile.",
+      );
     }
 
     const { data: account, error: accountError } = await adminClient
@@ -327,61 +507,83 @@ export async function POST(request: Request) {
         status: "active",
         balance: 0,
         credit_limit: 0,
-        currency: "USD"
+        currency: "USD",
       })
       .select("id")
       .single();
 
     if (accountError || !account) {
       await adminClient.from("customers").delete().eq("id", customer.id);
-      return apiError("INTERNAL_ERROR", accountError?.message ?? "Unable to create customer account.");
+      return apiError(
+        "INTERNAL_ERROR",
+        accountError?.message ?? "Unable to create customer account.",
+      );
     }
 
-    const { data: createdUser, error: userError } = await adminClient.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      app_metadata: {
-        tenant_id: tenant.id,
-        tenant_slug: tenant.slug,
-        role: "customer",
-        customer_id: customer.id,
-        account_id: account.id
-      },
-      user_metadata: {
-        full_name: fullName,
-        phone: phone ?? null,
-        tenant_id: tenant.id,
-        tenant_slug: tenant.slug,
-        role: "customer",
-        customer_id: customer.id,
-        account_id: account.id
-      }
-    });
+    const { data: createdUser, error: userError } =
+      await adminClient.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        app_metadata: {
+          tenant_id: tenant.id,
+          tenant_slug: tenant.slug,
+          role: "customer",
+          customer_id: customer.id,
+          account_id: account.id,
+        },
+        user_metadata: {
+          full_name: fullName,
+          phone: phone ?? null,
+          tenant_id: tenant.id,
+          tenant_slug: tenant.slug,
+          role: "customer",
+          customer_id: customer.id,
+          account_id: account.id,
+        },
+      });
 
     if (userError || !createdUser.user) {
       await adminClient.from("accounts").delete().eq("id", account.id);
       await adminClient.from("customers").delete().eq("id", customer.id);
-      return apiError("INTERNAL_ERROR", userError?.message ?? "Unable to create customer login.");
+      return apiError(
+        "INTERNAL_ERROR",
+        userError?.message ?? "Unable to create customer login.",
+      );
     }
 
-    const { error: profileError } = await adminClient.from("user_profiles").insert({
-      id: createdUser.user.id,
-      tenant_id: tenant.id,
-      role_id: roleId,
-      full_name: fullName,
-      department: "Customer",
-      status: "active"
-    });
+    const { error: profileError } = await adminClient
+      .from("user_profiles")
+      .insert({
+        id: createdUser.user.id,
+        tenant_id: tenant.id,
+        role_id: roleId,
+        full_name: fullName,
+        department: "Customer",
+        status: "active",
+      });
 
     if (profileError) {
       await adminClient.auth.admin.deleteUser(createdUser.user.id);
       await adminClient.from("accounts").delete().eq("id", account.id);
       await adminClient.from("customers").delete().eq("id", customer.id);
-      return apiError("INTERNAL_ERROR", profileError.message ?? "Unable to create customer profile.");
+      return apiError(
+        "INTERNAL_ERROR",
+        profileError.message ?? "Unable to create customer profile.",
+      );
     }
 
-    const { response, sessionUser, tenantContext } = await signInAndRespond(email, password);
+    await ensureStarterCustomerRecords(adminClient, {
+      tenantId: tenant.id,
+      customerId: customer.id,
+      accountId: account.id,
+      tenantSlug: tenant.slug,
+    });
+
+    const { response, sessionUser, tenantContext } = await signInAndRespond(
+      email,
+      password,
+    );
 
     await recordDomainEvent({
       tenantId: tenantContext.tenantId,
@@ -391,8 +593,8 @@ export async function POST(request: Request) {
       payload: {
         accountId: account.id,
         customerId: customer.id,
-        email
-      }
+        email,
+      },
     });
 
     await recordDomainEvent({
@@ -404,12 +606,15 @@ export async function POST(request: Request) {
         email: sessionUser.email ?? null,
         tenantId: tenantContext.tenantId,
         customerId: customer.id,
-        role
-      }
+        role,
+      },
     });
 
     return response;
   } catch (error) {
-    return apiError("INTERNAL_ERROR", error instanceof Error ? error.message : "Unable to complete signup.");
+    return apiError(
+      "INTERNAL_ERROR",
+      error instanceof Error ? error.message : "Unable to complete signup.",
+    );
   }
 }

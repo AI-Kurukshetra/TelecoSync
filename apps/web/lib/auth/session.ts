@@ -10,16 +10,16 @@ export const AUTH_PAGE_PATHS = [
   "/register",
   "/register/customer",
   "/forgot-password",
-  "/reset-password"
+  "/reset-password",
 ];
 export const AUTH_API_PUBLIC_PATHS = [
   "/api/auth/login",
   "/api/auth/register",
   "/api/auth/register/customer",
   "/api/auth/refresh",
-  "/api/auth/forgot-password"
+  "/api/auth/forgot-password",
 ];
-export const DEFAULT_AUTH_REDIRECT = "/workspace";
+export const DEFAULT_AUTH_REDIRECT = "/";
 
 export type TenantContext = {
   tenantId: string;
@@ -76,9 +76,7 @@ export function resolveTenantContext(user: User | null): TenantContext | null {
 
   return {
     tenantId,
-    role:
-      asString(user.app_metadata.role) ??
-      asString(user.user_metadata.role),
+    role: asString(user.app_metadata.role) ?? asString(user.user_metadata.role),
     tenantSlug:
       asString(user.app_metadata.tenant_slug) ??
       asString(user.user_metadata.tenant_slug),
@@ -87,14 +85,14 @@ export function resolveTenantContext(user: User | null): TenantContext | null {
       asString(user.user_metadata.customer_id),
     accountId:
       asString(user.app_metadata.account_id) ??
-      asString(user.user_metadata.account_id)
+      asString(user.user_metadata.account_id),
   };
 }
 
 export async function getCurrentSessionContext(): Promise<SessionContext | null> {
   const supabase = createServerSupabaseClient();
   const {
-    data: { user }
+    data: { user },
   } = await supabase.auth.getUser();
 
   const tenantContext = resolveTenantContext(user);
@@ -111,15 +109,14 @@ export async function getCurrentSessionContext(): Promise<SessionContext | null>
     .eq("tenant_id", tenantContext.tenantId)
     .maybeSingle();
 
-  const { data: roleRecord } =
-    profile?.role_id
-      ? await adminClient
-          .from("roles")
-          .select("name, permissions_json")
-          .eq("id", profile.role_id)
-          .eq("tenant_id", tenantContext.tenantId)
-          .maybeSingle()
-      : { data: null };
+  const { data: roleRecord } = profile?.role_id
+    ? await adminClient
+        .from("roles")
+        .select("name, permissions_json")
+        .eq("id", profile.role_id)
+        .eq("tenant_id", tenantContext.tenantId)
+        .maybeSingle()
+    : { data: null };
   const permissions = flattenPermissions(roleRecord?.permissions_json);
   const resolvedRole =
     asString(roleRecord?.name) ??
@@ -132,13 +129,13 @@ export async function getCurrentSessionContext(): Promise<SessionContext | null>
     fullName: asString(user.user_metadata.full_name),
     permissions,
     ...tenantContext,
-    role: normalizeAppRole(resolvedRole, permissions)
+    role: normalizeAppRole(resolvedRole, permissions),
   };
 }
 
 export function getDefaultRedirectForSession(
   role: string | null | undefined,
-  permissions: AppPermission[] = []
+  permissions: AppPermission[] = [],
 ) {
   return getDefaultRouteForRole(role, permissions);
 }

@@ -19,7 +19,7 @@ type RegisterResponse = {
 const roleDescriptions: Record<RegisterRole, string> = {
   admin: "",
   inventory_manager: "",
-  customer: ""
+  customer: "",
 };
 
 export function RegisterForm() {
@@ -47,7 +47,7 @@ export function RegisterForm() {
     const response = await fetch("/api/auth/register", {
       method: "POST",
       headers: {
-        "content-type": "application/json"
+        "content-type": "application/json",
       },
       body: JSON.stringify({
         role: getStringValue(formData, "role"),
@@ -57,8 +57,8 @@ export function RegisterForm() {
         password: getStringValue(formData, "password"),
         tenantName: getStringValue(formData, "tenantName"),
         tenantSlug: getStringValue(formData, "tenantSlug"),
-        phone: getStringValue(formData, "phone")
-      })
+        phone: getStringValue(formData, "phone"),
+      }),
     });
 
     const payload = (await response.json()) as RegisterResponse;
@@ -69,7 +69,7 @@ export function RegisterForm() {
       return;
     }
 
-    router.replace((payload.data?.nextPath ?? "/workspace") as Route);
+    router.replace((payload.data?.nextPath ?? "/") as Route);
     router.refresh();
   }
 

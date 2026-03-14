@@ -1,4 +1,7 @@
-import { ROLE_GUIDES, type DefaultRole } from "@telecosync/shared/constants/roles";
+import {
+  ROLE_GUIDES,
+  type DefaultRole,
+} from "@telecosync/shared/constants/roles";
 import type { AppPermission } from "@/lib/api/auth-guard";
 
 export type AppRole = DefaultRole;
@@ -27,13 +30,26 @@ const ROLE_ALIASES: Record<string, AppRole> = {
   customer_user: "customer",
   viewer: "admin",
   read_only: "admin",
-  auditor: "admin"
+  auditor: "admin",
 };
 
 const ROLE_ROUTE_PREFIXES: Record<AppRole, string[]> = {
   admin: ["/"],
-  inventory_manager: ["/inventory", "/products", "/customers", "/orders", "/billing"],
-  customer: ["/dashboard", "/my-services", "/products", "/orders", "/billing", "/documents", "/notifications"]
+  inventory_manager: [
+    "/inventory",
+    "/products",
+    "/customers",
+    "/orders",
+    "/billing",
+  ],
+  customer: [
+    "/dashboard",
+    "/products",
+    "/orders",
+    "/billing",
+    "/documents",
+    "/notifications",
+  ],
 };
 
 const ROLE_DEFAULT_ROUTES: Record<AppRole, string> = {
@@ -42,10 +58,14 @@ const ROLE_DEFAULT_ROUTES: Record<AppRole, string> = {
   customer: "/dashboard",
 };
 
-export function normalizeAppRole(role: string | null | undefined, permissions: AppPermission[] = []): AppRole {
+export function normalizeAppRole(
+  role: string | null | undefined,
+  permissions: AppPermission[] = [],
+): AppRole {
   const normalizedRole = role?.trim().toLowerCase();
   if (normalizedRole && Object.hasOwn(ROLE_ALIASES, normalizedRole)) {
-    const mappedRole = ROLE_ALIASES[normalizedRole as keyof typeof ROLE_ALIASES];
+    const mappedRole =
+      ROLE_ALIASES[normalizedRole as keyof typeof ROLE_ALIASES];
     if (mappedRole) {
       return mappedRole;
     }
@@ -56,9 +76,9 @@ export function normalizeAppRole(role: string | null | undefined, permissions: A
   }
   if (
     permissions.some((permission) =>
-      ["operations:", "products:", "customers:", "orders:", "billing:"].some((prefix) =>
-        permission.startsWith(prefix)
-      )
+      ["operations:", "products:", "customers:", "orders:", "billing:"].some(
+        (prefix) => permission.startsWith(prefix),
+      ),
     )
   ) {
     return "inventory_manager";
@@ -71,24 +91,37 @@ export function normalizeAppRole(role: string | null | undefined, permissions: A
   return "customer";
 }
 
-export function getRoleGuide(role: string | null | undefined, permissions: AppPermission[] = []) {
+export function getRoleGuide(
+  role: string | null | undefined,
+  permissions: AppPermission[] = [],
+) {
   return ROLE_GUIDES[normalizeAppRole(role, permissions)];
 }
 
-export function getAllowedRoutePrefixes(role: string | null | undefined, permissions: AppPermission[] = []) {
+export function getAllowedRoutePrefixes(
+  role: string | null | undefined,
+  permissions: AppPermission[] = [],
+) {
   return ROLE_ROUTE_PREFIXES[normalizeAppRole(role, permissions)];
 }
 
-export function getDefaultRouteForRole(role: string | null | undefined, permissions: AppPermission[] = []) {
+export function getDefaultRouteForRole(
+  role: string | null | undefined,
+  permissions: AppPermission[] = [],
+) {
   return ROLE_DEFAULT_ROUTES[normalizeAppRole(role, permissions)];
 }
 
 export function canAccessAppPath(
   pathname: string,
   role: string | null | undefined,
-  permissions: AppPermission[] = []
+  permissions: AppPermission[] = [],
 ) {
-  if (pathname === "/" || pathname.startsWith("/api/") || pathname.startsWith("/access-denied")) {
+  if (
+    pathname === "/" ||
+    pathname.startsWith("/api/") ||
+    pathname.startsWith("/access-denied")
+  ) {
     return true;
   }
 
@@ -97,5 +130,7 @@ export function canAccessAppPath(
     return true;
   }
 
-  return ROLE_ROUTE_PREFIXES[appRole].some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  return ROLE_ROUTE_PREFIXES[appRole].some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
 }
